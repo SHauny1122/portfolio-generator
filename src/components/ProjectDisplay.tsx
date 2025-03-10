@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { RepoData } from '../services/github';
 
 interface ProjectDisplayProps {
@@ -33,6 +34,36 @@ const getLanguageColor = (language: string): string => {
 };
 
 export function ProjectDisplay({ repoData }: ProjectDisplayProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === repoData.images.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? repoData.images.length - 1 : prev - 1
+    );
+  };
+
+  // Add keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (repoData.images.length <= 1) return;
+      
+      if (e.key === 'ArrowLeft') {
+        prevImage();
+      } else if (e.key === 'ArrowRight') {
+        nextImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [repoData.images.length]);
+
   const totalBytes = Object.values(repoData.languages).reduce((a, b) => a + b, 0);
   
   const sortedLanguages = Object.entries(repoData.languages)
@@ -207,42 +238,87 @@ export function ProjectDisplay({ repoData }: ProjectDisplayProps) {
             {repoData.images.length > 0 && (
               <div className="bg-gray-800/50 rounded-2xl p-6 backdrop-blur-sm border border-gray-700/50">
                 <h2 className="text-2xl font-semibold mb-4 text-pink-400">Project Screenshots</h2>
-                <div className="grid gap-4">
-                  {repoData.images.map((image, index) => (
-                    <div
-                      key={index}
-                      className="relative aspect-video bg-gray-900 rounded-xl overflow-hidden group"
-                    >
-                      <img
-                        src={image}
-                        alt={`${repoData.name} screenshot ${index + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Topics */}
-            {repoData.topics.length > 0 && (
-              <div className="bg-gray-800/50 rounded-2xl p-6 backdrop-blur-sm border border-gray-700/50">
-                <h2 className="text-2xl font-semibold mb-4 text-orange-400">Topics</h2>
-                <div className="flex flex-wrap gap-2">
-                  {repoData.topics.map((topic) => (
-                    <span
-                      key={topic}
-                      className="px-4 py-2 bg-orange-500/10 text-orange-400 rounded-full text-sm border border-orange-500/20"
-                    >
-                      {topic}
-                    </span>
-                  ))}
+                <div className="relative group">
+                  <div className="aspect-video relative overflow-hidden rounded-xl bg-gray-900/50">
+                    <img
+                      src={repoData.images[currentImageIndex]}
+                      alt={`Project Screenshot ${currentImageIndex + 1}`}
+                      className="w-full h-full object-contain max-h-[500px] p-4"
+                      loading="lazy"
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  
+                  {repoData.images.length > 1 && (
+                    <>
+                      <button
+                        onClick={prevImage}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        aria-label="Previous image"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={nextImage}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        aria-label="Next image"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/30 rounded-full backdrop-blur-sm max-w-full overflow-x-auto">
+                        {repoData.images.length > 10 ? (
+                          // If more than 10 images, show current position as text
+                          <span className="text-white/90 text-sm">
+                            {currentImageIndex + 1} / {repoData.images.length}
+                          </span>
+                        ) : (
+                          // Otherwise show dots
+                          repoData.images.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => setCurrentImageIndex(index)}
+                              className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                index === currentImageIndex 
+                                  ? 'bg-white w-3' 
+                                  : 'bg-white/50 hover:bg-white/80'
+                              }`}
+                              aria-label={`Go to image ${index + 1}`}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Topics */}
+          {repoData.topics.length > 0 && (
+            <div className="bg-gray-800/50 rounded-2xl p-6 backdrop-blur-sm border border-gray-700/50">
+              <h2 className="text-2xl font-semibold mb-4 text-orange-400">Topics</h2>
+              <div className="flex flex-wrap gap-2">
+                {repoData.topics.map((topic) => (
+                  <span
+                    key={topic}
+                    className="px-4 py-2 bg-orange-500/10 text-orange-400 rounded-full text-sm border border-orange-500/20"
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
