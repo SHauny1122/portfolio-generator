@@ -1,15 +1,32 @@
 import { useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../services/supabase';
 
 export function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const { error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Auth error:', error.message);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        console.log('Auth callback session:', { data, error }); // Debug log
+
+        if (error) {
+          console.error('Auth callback error:', error);
+          // Redirect with error query param for debugging
+          window.location.href = `http://localhost:5173/?error=${encodeURIComponent(error.message)}`;
+          return;
+        }
+        
+        if (!data.session) {
+          console.error('No session found in callback');
+          window.location.href = 'http://localhost:5173/?error=no_session';
+          return;
+        }
+
+        // Successfully authenticated, redirect to home
+        window.location.href = 'http://localhost:5173/';
+      } catch (err) {
+        console.error('Unexpected callback error:', err);
+        window.location.href = 'http://localhost:5173/?error=unexpected';
       }
-      // Redirect back to the main page
-      window.location.href = '/';
     };
 
     handleAuthCallback();

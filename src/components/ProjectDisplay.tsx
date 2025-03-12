@@ -1,216 +1,278 @@
 import { useState, useEffect } from 'react';
 import { RepoData } from '../services/github';
-import { FaGithub, FaLink, FaArrowLeft } from 'react-icons/fa';
+import { FaGithub, FaLink, FaArrowLeft, FaExternalLinkAlt } from 'react-icons/fa';
 import { ShareButtons } from './ShareButtons';
+import { AccountMenu } from './AccountMenu';
+import { captureScreenshots, findLiveSiteUrl, LiveSiteScreenshots } from '../services/screenshots';
+import '../styles/glass.css';
+import { motion } from 'framer-motion';
 
 interface ProjectDisplayProps {
   repoData: RepoData;
   onBack: () => void;
+  className?: string;
 }
 
 export function ProjectDisplay({ repoData, onBack }: ProjectDisplayProps) {
-  const screenshots = repoData.screenshots || [];
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  const nextImage = () => {
-    if (screenshots.length) {
-      setCurrentImageIndex((current) => (current + 1) % screenshots.length);
-    }
-  };
-
-  const prevImage = () => {
-    if (screenshots.length) {
-      setCurrentImageIndex((current) => 
-        current === 0 ? screenshots.length - 1 : current - 1
-      );
-    }
-  };
+  const [screenshots, setScreenshots] = useState<LiveSiteScreenshots | null>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') nextImage();
-      if (e.key === 'ArrowLeft') prevImage();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    const liveSiteUrl = findLiveSiteUrl(repoData);
+    if (liveSiteUrl) {
+      const getScreenshots = async () => {
+        try {
+          const screenshots = await captureScreenshots(liveSiteUrl);
+          setScreenshots(screenshots);
+        } catch (error) {
+          console.error('Failed to capture screenshots:', error);
+        }
+      };
+      getScreenshots();
+    }
+  }, [repoData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      {/* Hero Section */}
-      <div className="relative h-[600px] bg-gradient-to-br from-blue-900 to-purple-900 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-900"></div>
-        
-        {/* Content */}
-        <div className="relative max-w-[90rem] mx-auto px-4 py-12 h-full flex flex-col">
-          <div className="flex items-start justify-between w-full mb-auto">
-            <button
-              onClick={onBack}
-              className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
-            >
-              <FaArrowLeft />
-              Back to Generator
-            </button>
-            <ShareButtons 
-              title={repoData.name}
-              description={repoData.description}
-              url={repoData.htmlUrl}
-            />
-          </div>
-          
-          <div className="mb-48">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-200 mb-4 opacity-80">{repoData.name}</h1>
-            <p className="text-xl text-gray-300 max-w-3xl mb-12 opacity-80">{repoData.description}</p>
-            
-            <div className="flex gap-4 relative z-10">
-              <a
-                href={repoData.htmlUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600/90 text-white rounded-lg hover:bg-blue-700 transition-colors backdrop-blur-sm"
-              >
-                <FaGithub size={20} />
-                View on GitHub
-              </a>
-              {repoData.homepage && (
-                <a
-                  href={repoData.homepage}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 bg-purple-600/90 text-white rounded-lg hover:bg-purple-700 transition-colors backdrop-blur-sm"
-                >
-                  <FaLink size={20} />
-                  Live Demo
-                </a>
-              )}
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header with Back and Account */}
+        <div className="flex justify-between items-center mb-8">
+          <motion.button
+            whileHover={{ x: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onBack}
+            className="glass-button px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <FaArrowLeft />
+            Back
+          </motion.button>
+          <div className="flex items-center gap-4">
+            <AccountMenu />
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-[90rem] mx-auto px-4 -mt-48">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column - 8 cols */}
-          <div className="lg:col-span-8">
-            {/* Screenshots */}
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50">
-              <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Project Screenshots
-              </h2>
-              <div className="aspect-video bg-gray-900/50 rounded-lg overflow-hidden">
-                {screenshots.length > 0 ? (
-                  <div className="relative w-full h-full group">
-                    <img
-                      src={screenshots[currentImageIndex]}
-                      alt={`${repoData.name} screenshot`}
-                      className="w-full h-full object-contain"
-                    />
-                    {screenshots.length > 1 && (
+        <div className="space-y-8">
+          {/* Project Info Section */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-8 rounded-xl"
+          >
+            <div className="flex justify-between items-start">
+              <div className="space-y-6 max-w-3xl">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                  {repoData.name}
+                </h1>
+                
+                {/* Enhanced Description Card */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="glass-card bg-gradient-to-r from-blue-500/5 to-purple-500/5 backdrop-blur-sm p-6 rounded-lg border border-blue-500/10"
+                >
+                  <p className="text-lg text-gray-300 leading-relaxed">
+                    {repoData.description || "No description available. Add a description to your GitHub repository to make it more appealing!"}
+                  </p>
+                </motion.div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <motion.a
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    href={repoData.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="glass-button px-4 py-2 rounded-lg flex items-center gap-2"
+                  >
+                    <FaGithub />
+                    View on GitHub
+                  </motion.a>
+                  {repoData.homepage && (
+                    <motion.a
+                      whileHover={{ y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      href={repoData.homepage}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="glass-button px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      <FaLink />
+                      Live Site
+                    </motion.a>
+                  )}
+                </div>
+              </div>
+
+              {/* Share Buttons - Kept in original position */}
+              <div className="flex gap-2">
+                <ShareButtons url={repoData.htmlUrl} title={repoData.name} />
+              </div>
+            </div>
+
+            <div className="mt-8">
+              {/* Languages Section */}
+              {Object.keys(repoData.languages).length > 0 && (
+                <div className="glass-card p-4 rounded-lg mb-4 backdrop-blur-sm">
+                  <h3 className="text-lg font-semibold mb-3 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                    Languages
+                  </h3>
+                  {(() => {
+                    // Language-specific vibrant colors
+                    const getLanguageColor = (language: string, index: number): string => {
+                      const colors: { [key: string]: string } = {
+                        TypeScript: 'bg-[#007ACC]', // Bright blue
+                        JavaScript: 'bg-[#F7DF1E]', // Bright yellow
+                        Python: 'bg-[#3776AB]', // Python blue
+                        Java: 'bg-[#ED8B00]', // Java orange
+                        PHP: 'bg-[#777BB4]', // PHP purple
+                        Ruby: 'bg-[#CC342D]', // Ruby red
+                        CSS: 'bg-[#563D7C]', // Bootstrap purple
+                        HTML: 'bg-[#E34F26]', // HTML orange
+                        'C++': 'bg-[#00599C]', // C++ blue
+                        'C#': 'bg-[#239120]', // C# green
+                        Go: 'bg-[#00ADD8]', // Go blue
+                        Rust: 'bg-[#DEA584]', // Rust orange
+                        Swift: 'bg-[#FA7343]', // Swift orange
+                        Kotlin: 'bg-[#A97BFF]', // Kotlin purple
+                        Dart: 'bg-[#00B4AB]', // Dart teal
+                        Vue: 'bg-[#4FC08D]', // Vue green
+                        React: 'bg-[#61DAFB]', // React blue
+                        Shell: 'bg-[#89E051]', // Shell green
+                        PostgreSQL: 'bg-[#336791]', // PostgreSQL blue
+                        MySQL: 'bg-[#4479A1]', // MySQL blue
+                      };
+                      
+                      // Vibrant fallback colors for unknown languages
+                      const fallbackColors = [
+                        'bg-[#FF0080]', // Hot pink
+                        'bg-[#7928CA]', // Bright purple
+                        'bg-[#0070F3]', // Bright blue
+                        'bg-[#00DFD8]', // Cyan
+                        'bg-[#FF4D4D]', // Bright red
+                        'bg-[#F5A623]', // Orange
+                        'bg-[#50E3C2]', // Mint
+                        'bg-[#7ED321]', // Green
+                        'bg-[#B4EC51]', // Lime
+                        'bg-[#A389F4]'  // Purple
+                      ];
+
+                      return colors[language] || fallbackColors[index % fallbackColors.length];
+                    };
+
+                    return (
                       <>
-                        <button
-                          onClick={prevImage}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/75"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={nextImage}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/75"
-                        >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
+                        <div className="h-3 w-full rounded-full overflow-hidden flex bg-gray-800/30">
+                          {Object.entries(repoData.languages).map(([lang, bytes], index) => {
+                            const total = Object.values(repoData.languages).reduce((a, b) => a + b, 0);
+                            const percentage = (bytes / total) * 100;
+                            return (
+                              <div
+                                key={lang}
+                                className={`${getLanguageColor(lang, index)} h-full transition-all duration-300`}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-3 mt-3">
+                          {Object.entries(repoData.languages).map(([lang, bytes], index) => {
+                            const total = Object.values(repoData.languages).reduce((a, b) => a + b, 0);
+                            const percentage = ((bytes / total) * 100).toFixed(1);
+                            return (
+                              <div key={lang} className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${getLanguageColor(lang, index)}`} />
+                                <span className="text-sm font-medium">{lang}</span>
+                                <span className="text-xs text-gray-400">{percentage}%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </>
-                    )}
-                  </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Stars:</span>
+                  <span className="text-gray-300">{repoData.stars}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Updated:</span>
+                  <span className="text-gray-300">{new Date(repoData.updatedAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Screenshots Section */}
+          {repoData.homepage && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="glass-card p-8 rounded-xl relative"
+            >
+              <div className="flex items-center mb-6">
+                <h2 className="text-2xl font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                  Live Site Preview
+                </h2>
+              </div>
+
+              {/* Screenshot Display with Glass Effect */}
+              <div className="relative w-full overflow-hidden rounded-lg bg-gray-900/50 backdrop-blur-sm">
+                {screenshots ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative w-full"
+                  >
+                    <motion.img
+                      src={screenshots.desktop}
+                      alt={`${repoData.name} preview`}
+                      className="w-full h-auto rounded-lg shadow-xl transition-all duration-300"
+                      style={{
+                        minHeight: '400px',
+                        objectFit: 'cover',
+                        objectPosition: 'top'
+                      }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3 }}
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        console.error('Error loading screenshot');
+                      }}
+                    />
+                  </motion.div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-gray-500">No screenshots available</span>
+                  <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="text-gray-400 flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      Loading preview...
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Right Column - 4 cols */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Project Timeline */}
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50">
-              <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Project Timeline
-              </h2>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Started</span>
-                  <span className="text-white">{new Date(repoData.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Last Update</span>
-                  <span className="text-white">{new Date(repoData.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Status</span>
-                  <span className="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
-                    Active
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Project Stats */}
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50">
-              <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Project Stats
-              </h2>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-white">{repoData.stars}</div>
-                  <div className="text-sm text-gray-400">Stars</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">{repoData.forks}</div>
-                  <div className="text-sm text-gray-400">Forks</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-white">{repoData.watchers}</div>
-                  <div className="text-sm text-gray-400">Watchers</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Technologies */}
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-gray-700/50">
-              <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Technologies
-              </h2>
-              <div className="space-y-4">
-                {Object.entries(repoData.languages || {}).map(([lang, bytes]) => {
-                  const totalBytes = Object.values(repoData.languages || {}).reduce((a, b) => a + b, 0);
-                  const percentage = totalBytes > 0 ? (bytes / totalBytes * 100).toFixed(1) : '0';
-                  return (
-                    <div key={lang}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-white">{lang}</span>
-                        <span className="text-gray-400">{percentage}%</span>
-                      </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+              {/* Visit Site Button (in preview) */}
+              <motion.a
+                href={repoData.homepage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute top-4 right-4 glass-button px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-500/30 transition-all duration-300"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <FaExternalLinkAlt className="text-sm" />
+                Visit Site
+              </motion.a>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

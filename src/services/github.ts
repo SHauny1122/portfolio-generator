@@ -24,6 +24,7 @@ export interface RepoData {
   defaultBranch: string;
   images: string[];
   screenshots?: string[];
+  error?: 'LIMIT_REACHED';
 }
 
 export const extractRepoInfoFromUrl = (url: string): { owner: string; repo: string } | null => {
@@ -256,57 +257,71 @@ async function incrementPortfolioCount(userId: string): Promise<boolean> {
   }
 }
 
-export async function fetchRepoData(url: string, userId?: string): Promise<RepoData | null> {
-  if (userId) {
-    const canGenerate = await incrementPortfolioCount(userId);
-    if (!canGenerate) {
-      throw new Error('You have reached the limit of 3 portfolios. Please upgrade to premium to generate more!');
-    }
-  }
-
-  const repoInfo = extractRepoInfoFromUrl(url);
-  if (!repoInfo) return null;
-
+export async function fetchRepoData(repoUrl: string, userId?: string): Promise<RepoData | null> {
   try {
-    const [repoResponse, languagesResponse] = await Promise.all([
-      octokit.repos.get({
-        owner: repoInfo.owner,
-        repo: repoInfo.repo
-      }),
-      octokit.repos.listLanguages({
-        owner: repoInfo.owner,
-        repo: repoInfo.repo
-      })
+    // Check portfolio count limit if userId is provided
+    if (userId) {
+      const hasReachedLimit = !(await incrementPortfolioCount(userId));
+      if (hasReachedLimit) {
+        return {
+          name: '',
+          description: '',
+          url: '',
+          htmlUrl: '',
+          homepage: '',
+          language: '',
+          languages: {},
+          stars: 0,
+          forks: 0,
+          watchers: 0,
+          createdAt: '',
+          updatedAt: '',
+          topics: [],
+          isTemplate: false,
+          visibility: '',
+          defaultBranch: '',
+          images: [],
+          error: 'LIMIT_REACHED'
+        };
+      }
+    }
+
+    const repoInfo = extractRepoInfoFromUrl(repoUrl);
+    if (!repoInfo) {
+      throw new Error('Invalid GitHub repository URL');
+    }
+
+    const { owner, repo } = repoInfo;
+
+    const [{ data: repoData }, { data: languageData }] = await Promise.all([
+      octokit.repos.get({ owner, repo }),
+      octokit.repos.listLanguages({ owner, repo })
     ]);
 
-    const { data: repo } = repoResponse;
-    const { data: languages } = languagesResponse;
-
-    // Find images in the repository
-    const images = await findImagesInRepo(repoInfo.owner, repoInfo.repo);
+    const images = await findImagesInRepo(owner, repo);
 
     return {
-      name: repo.name,
-      description: repo.description ?? '',
-      url: repo.html_url,
-      htmlUrl: repo.html_url,
-      homepage: repo.homepage ?? '',
-      language: repo.language ?? '',
-      languages,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
-      watchers: repo.watchers_count,
-      createdAt: repo.created_at,
-      updatedAt: repo.updated_at,
-      topics: repo.topics ?? [],
-      isTemplate: repo.is_template ?? false,
-      visibility: repo.visibility ?? 'public',
-      defaultBranch: repo.default_branch ?? 'main',
+      name: repoData.name,
+      description: repoData.description || '',
+      url: repoData.git_url,
+      htmlUrl: repoData.html_url,
+      homepage: repoData.homepage || '',
+      language: repoData.language || '',
+      languages: languageData,
+      stars: repoData.stargazers_count,
+      forks: repoData.forks_count,
+      watchers: repoData.watchers_count,
+      createdAt: repoData.created_at,
+      updatedAt: repoData.updated_at,
+      topics: repoData.topics || [],
+      isTemplate: repoData.is_template || false,
+      visibility: repoData.visibility || 'public',
+      defaultBranch: repoData.default_branch || 'main',
       images,
       screenshots: images
     };
   } catch (error) {
     console.error('Error fetching repository data:', error);
-    return null;
+    throw error;
   }
 };
