@@ -1,13 +1,23 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks';
+
+declare global {
+  interface Window {
+    paypal: any;
+  }
+}
 
 interface PayPalButtonProps {
   userId: string;
+  amount: string;
   onSuccess?: () => void;
 }
 
-export default function PayPalButton({ userId, onSuccess }: PayPalButtonProps) {
+export default function PayPalButton({ userId, amount, onSuccess }: PayPalButtonProps) {
   const paypalButtonRef = useRef<HTMLDivElement>(null);
+  const { supabase } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -15,21 +25,15 @@ export default function PayPalButton({ userId, onSuccess }: PayPalButtonProps) {
     script.async = true;
 
     script.onload = () => {
-      if (!paypalButtonRef.current) return;
+      if (!paypalButtonRef.current || !window.paypal) return;
 
-      // @ts-ignore
       window.paypal.Buttons({
-        style: {
-          layout: 'vertical',
-          shape: 'rect',
-          label: 'pay'
-        },
         createOrder: (_data: any, actions: any) => {
           return actions.order.create({
             purchase_units: [{
               description: 'Portfolio Generator Premium',
               amount: {
-                value: '19.99'
+                value: amount
               }
             }]
           });
@@ -37,21 +41,28 @@ export default function PayPalButton({ userId, onSuccess }: PayPalButtonProps) {
         onApprove: async (_data: any, actions: any) => {
           const order = await actions.order.capture();
           
-          const { error } = await supabase
-            .from('user_profiles')
-            .update({ 
-              is_premium: true,
-              payment_id: order.id,
-              payment_completed_at: new Date().toISOString()
-            })
-            .eq('id', userId);
+          try {
+            const { error } = await supabase
+              .from('user_profiles')
+              .update({ 
+                is_premium: true,
+                payment_id: order.id,
+                payment_completed_at: new Date().toISOString()
+              })
+              .eq('id', userId);
 
-          if (error) {
-            console.error('Failed to update user status:', error);
-            return;
+            if (error) throw error;
+
+            showToast('Payment successful!', 'success');
+            onSuccess?.();
+          } catch (error) {
+            console.error('Error recording payment:', error);
+            showToast('Error recording payment', 'error');
           }
-
-          onSuccess?.();
+        },
+        onError: (err: any) => {
+          console.error('PayPal error:', err);
+          showToast('Payment failed', 'error');
         }
       }).render(paypalButtonRef.current);
     };
@@ -62,7 +73,7 @@ export default function PayPalButton({ userId, onSuccess }: PayPalButtonProps) {
       const script = document.querySelector('script[src*="paypal"]');
       if (script) script.remove();
     };
-  }, [userId, onSuccess]);
+  }, [userId, amount, onSuccess, showToast]);
 
   return (
     <div className="w-full">

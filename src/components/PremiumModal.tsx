@@ -67,6 +67,7 @@ export function PremiumModal({ isOpen, onClose, userId }: PremiumModalProps) {
         
         <PayPalButton 
           userId={userId}
+          amount="19.99"
           onSuccess={() => {
             onClose();
             window.location.reload(); // Refresh to update UI with premium status
